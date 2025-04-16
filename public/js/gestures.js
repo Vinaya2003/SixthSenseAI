@@ -28,6 +28,11 @@ function initGestureDetection() {
 
 // Touch event handlers
 function handleTouchStart(event) {
+    // Check if we're on the message screen - if so, only handle taps, not swipes
+    if (isMessageScreenActive()) {
+        return;
+    }
+    
     touchStartX = event.touches[0].clientX;
     touchStartY = event.touches[0].clientY;
     touchStartTime = new Date().getTime();
@@ -41,6 +46,11 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
+    // Check if we're on the message screen - if so, only handle taps, not swipes
+    if (isMessageScreenActive()) {
+        return;
+    }
+    
     // Cancel long press if user moves finger
     if (Math.abs(event.touches[0].clientX - touchStartX) > 10 || 
         Math.abs(event.touches[0].clientY - touchStartY) > 10) {
@@ -50,6 +60,11 @@ function handleTouchMove(event) {
 }
 
 function handleTouchEnd(event) {
+    // Check if we're on the message screen - if so, only handle taps, not swipes
+    if (isMessageScreenActive()) {
+        return;
+    }
+    
     touchEndX = event.changedTouches[0].clientX;
     touchEndY = event.changedTouches[0].clientY;
     touchEndTime = new Date().getTime();
@@ -70,6 +85,11 @@ function handleTouchEnd(event) {
 
 // Mouse event handlers (for desktop testing)
 function handleMouseDown(event) {
+    // Check if we're on the message screen - if so, only handle taps, not swipes
+    if (isMessageScreenActive()) {
+        return;
+    }
+    
     touchStartX = event.clientX;
     touchStartY = event.clientY;
     touchStartTime = new Date().getTime();
@@ -83,6 +103,11 @@ function handleMouseDown(event) {
 }
 
 function handleMouseMove(event) {
+    // Check if we're on the message screen - if so, only handle taps, not swipes
+    if (isMessageScreenActive()) {
+        return;
+    }
+    
     // Only if mouse button is down
     if (event.buttons !== 1) return;
     
@@ -95,6 +120,11 @@ function handleMouseMove(event) {
 }
 
 function handleMouseUp(event) {
+    // Check if we're on the message screen - if so, only handle taps, not swipes
+    if (isMessageScreenActive()) {
+        return;
+    }
+    
     touchEndX = event.clientX;
     touchEndY = event.clientY;
     touchEndTime = new Date().getTime();
@@ -113,8 +143,22 @@ function handleMouseUp(event) {
     handleSwipe();
 }
 
+// Helper function to check if the message screen is currently active/visible
+function isMessageScreenActive() {
+    const messageScreen = document.getElementById('message-screen');
+    return messageScreen && 
+           window.getComputedStyle(messageScreen).display !== 'none' && 
+           !messageScreen.classList.contains('hidden');
+}
+
 // Handle swipe gestures
 function handleSwipe() {
+    // Skip swipe handling on message screen
+    if (isMessageScreenActive()) {
+        console.log("Swipe detection disabled on message screen");
+        return;
+    }
+    
     console.log("Handling swipe");
     const horizontalDistance = touchEndX - touchStartX;
     const verticalDistance = touchEndY - touchStartY;
@@ -202,8 +246,16 @@ function handleUpSwipe() {
     // Only process for client users
     if (!currentUser || currentUser.type !== 'client') return;
     
+    // Detect device type for appropriate instructions
+    const isTouchDevice = ('ontouchstart' in window) || 
+                        window.DocumentTouch && document instanceof DocumentTouch;
+    
+    const instructionText = isTouchDevice ?
+        'Message interface opened. Swipe gestures are disabled here. Double-tap to start recording, double-tap again to stop and send your message.' :
+        'Message interface opened. Swipe gestures are disabled here. Double-click to start recording, double-click again to stop and send your message.';
+    
     showAssistiveFeedback('Up swipe detected. Message interface opened.');
-    speakText('Message interface opened. Tap once to start recording, tap again to send your message.');
+    speakText(instructionText);
     
     // Navigate to message screen and ensure it's visible
     const mainScreen = document.getElementById('main-screen');
@@ -225,7 +277,7 @@ function handleUpSwipe() {
         const messageText = document.getElementById('message-text');
         if (messageText) {
             messageText.value = '';
-            messageText.placeholder = 'Tap once to record your message';
+            // Placeholder updated in setupMessageTapHandler via updateMessagePlaceholder
         }
         
         // Set up back button functionality
@@ -241,7 +293,7 @@ function handleUpSwipe() {
         speakText('Error opening message interface. Please try again.');
     }
     
-    console.log('Up swipe - Message interface opened');
+    console.log('Up swipe - Message interface opened, swipe gestures disabled');
 }
 
 // Set up back button functionality
@@ -363,31 +415,148 @@ function setupMessageTapHandler() {
     const messageScreen = document.getElementById('message-screen');
     if (!messageScreen) return;
     
-    // Remove any existing click handlers to prevent duplicates
+    // Remove any existing handlers to prevent duplicates
     messageScreen.removeEventListener('click', handleMessageScreenTap);
+    messageScreen.removeEventListener('touchstart', handleMessageScreenTouchStart);
+    messageScreen.removeEventListener('touchend', handleMessageScreenTouch);
     
-    // Add the click handler
+    // Feature detection for touch events
+    const touchSupported = ('ontouchstart' in window) || 
+                          window.DocumentTouch && document instanceof DocumentTouch;
+    
+    // Add handlers based on device capabilities
     messageScreen.addEventListener('click', handleMessageScreenTap);
+    
+    if (touchSupported) {
+        console.log('Touch events supported - using native touch handlers');
+        messageScreen.addEventListener('touchstart', handleMessageScreenTouchStart);
+        messageScreen.addEventListener('touchend', handleMessageScreenTouch);
+    } else {
+        console.log('Touch events not supported - using click-only mode');
+        // On non-touch devices, we only need click events which are already added
+    }
+    
+    // Set appropriate instructions based on device capabilities
+    updateMessagePlaceholder(touchSupported);
+    
+    // Reset the detection variables
+    lastMessageTapTime = 0;
+    lastMessageTouchTime = 0;
+    
+    // Also ensure that we reset the recording state when switching to the message screen
+    isCurrentlyRecording = false;
+    
+    console.log('Message screen handlers set up for both web and mobile');
 }
 
-// Variable to track recording state
-let isCurrentlyRecording = false;
+// Update the message placeholder text based on device capabilities
+function updateMessagePlaceholder(isTouchDevice) {
+    const messageText = document.getElementById('message-text');
+    if (messageText) {
+        if (isTouchDevice) {
+            messageText.placeholder = 'Double-tap to record your message';
+        } else {
+            messageText.placeholder = 'Double-click to record your message';
+        }
+    }
+}
 
-// Handler for taps on the message screen
+// Variables for tracking tap/touch state
+let isCurrentlyRecording = false;
+let lastMessageTapTime = 0;
+let lastMessageTouchTime = 0;
+
+// Handler for touch start events on message screen
+function handleMessageScreenTouchStart(event) {
+    // Store the position but don't interfere with other handlers
+    if (event.touches && event.touches[0]) {
+        const touch = event.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+    }
+}
+
+// Handler for mouse clicks (primarily for web browsers)
 function handleMessageScreenTap(event) {
-    // Ignore clicks on send button (it has its own handler)
+    // Prevent default actions
+    event.preventDefault();
+    
+    // Ignore clicks on specific elements
     if (event.target.id === 'send-btn' || 
-        event.target.closest('#send-btn')) {
+        event.target.closest('#send-btn') ||
+        event.target.id === 'message-back-btn' || 
+        event.target.closest('#message-back-btn')) {
         return;
     }
     
-    // Ignore clicks on voice input button
-    if (event.target.id === 'voice-input-btn' || 
-        event.target.closest('#voice-input-btn')) {
+    // Double-tap detection logic
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastMessageTapTime;
+    
+    console.log('Click detected in message screen, tapLength:', tapLength);
+    
+    // If it's a double-tap (tap within 300ms of last tap)
+    if (tapLength < 300 && tapLength > 0) {
+        console.log('Double-click detected, recording state:', isCurrentlyRecording);
+        toggleRecording();
+    }
+    
+    // Update the last tap time
+    lastMessageTapTime = currentTime;
+}
+
+// Handler for touch events (primarily for mobile devices)
+function handleMessageScreenTouch(event) {
+    // Prevent the event from being processed as a mouse click too
+    event.preventDefault();
+    
+    // Get the touched element
+    const target = event.target || (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].target : null);
+    if (!target) return;
+    
+    // Ignore touches on specific elements
+    if (target.id === 'send-btn' || 
+        target.closest('#send-btn') ||
+        target.id === 'message-back-btn' || 
+        target.closest('#message-back-btn')) {
         return;
     }
     
-    // Toggle between recording and sending
+    // Check if this is a small movement (not a swipe)
+    if (event.changedTouches && event.changedTouches[0]) {
+        const touch = event.changedTouches[0];
+        const moveX = Math.abs(touch.clientX - touchStartX);
+        const moveY = Math.abs(touch.clientY - touchStartY);
+        
+        // If movement is too large, it might be a swipe attempt, not a tap
+        if (moveX > 30 || moveY > 30) {
+            console.log('Touch movement too large, ignoring as possible swipe');
+            return;
+        }
+    }
+    
+    // Double-tap detection logic for touch events
+    const currentTime = new Date().getTime();
+    const touchLength = currentTime - lastMessageTouchTime;
+    
+    console.log('Touch detected in message screen, touchLength:', touchLength);
+    
+    // If it's a double-tap (tap within 300ms of last tap)
+    if (touchLength < 300 && touchLength > 0) {
+        console.log('Double-touch detected, recording state:', isCurrentlyRecording);
+        
+        // Add small delay to prevent accidental touch events
+        setTimeout(() => {
+            toggleRecording();
+        }, 10);
+    }
+    
+    // Update the last touch time
+    lastMessageTouchTime = currentTime;
+}
+
+// Shared function to toggle recording state
+function toggleRecording() {
     if (!isCurrentlyRecording) {
         // Start recording
         startRecording();
@@ -403,8 +572,17 @@ function handleMessageScreenTap(event) {
 function startRecording() {
     if (typeof startRecognition === 'function') {
         startRecognition();
-        showAssistiveFeedback('Recording started. Tap again to stop and send.');
-        speakText('Recording started. Tap again to stop and send.');
+        
+        // Use appropriate device terminology
+        const isTouchDevice = ('ontouchstart' in window) || 
+                            window.DocumentTouch && document instanceof DocumentTouch;
+        
+        const instructionText = isTouchDevice ? 
+            'Recording started. Double-tap again to stop and send.' : 
+            'Recording started. Double-click again to stop and send.';
+        
+        showAssistiveFeedback(instructionText);
+        speakText(instructionText);
     } else {
         console.error('Speech recognition function not available');
         showAssistiveFeedback('Voice recording not available. Please try again.');
@@ -430,7 +608,7 @@ function stopRecordingAndSend() {
                     // Keep the message interface open for continued conversation
                     setTimeout(() => {
                         messageText.value = '';
-                        messageText.placeholder = 'Tap once to record your next message';
+                        messageText.placeholder = 'Double-tap to record your next message';
                     }, 2000);
                 } else {
                     showAssistiveFeedback('Could not send message. Please try again.');

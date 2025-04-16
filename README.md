@@ -112,15 +112,3 @@ This project is licensed under the MIT License.
 
 - Icons provided by various open-source icon libraries
 - Speech recognition powered by Web Speech API 
-
-## Created By
-
-## 👤 Contributor
-
-Proud to have contributed to this project — feel free to connect with me:
-
-- 📧 Email: [vinayvvinayv568@gmail.com](mailto:vinayvvinayv568@gmail.com)  
-- 💻 GitHub: [Vinaya2003](https://github.com/Vinaya2003)  
-- 🔗 LinkedIn: [ᐯiᑎᗩy ᐯ](https://www.linkedin.com/in/ᐯiᑎᗩy-ᐯ-68875b232)
-
-> *"Building with passion. Coding with purpose."*

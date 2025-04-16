@@ -927,7 +927,7 @@ function navigateTo(screen, skipAnnouncement = false) {
             
             // Only announce for client users - skip if requested
             if (currentUser && currentUser.type === 'client' && !skipAnnouncement) {
-                speakText("Tap once to start voice input. Tap again to stop and send your message.");
+                speakText("Double-tap to start voice input. Double-tap again to stop and send your message.");
             }
             break;
         case 'admin':
@@ -2983,7 +2983,7 @@ function provideHelpGuide() {
         
         Swipe right to hear the current time and date.
         
-        Swipe up to record and send a voice message. Tap anywhere to stop recording and send.
+        Swipe up to record and send a voice message. Double-tap to start recording and double-tap again to stop and send.
         
         Swipe down to hear the last message from your assistant.
         
